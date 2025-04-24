@@ -194,9 +194,9 @@ config_2d = GraphConfig(
 
 # Example usage with camera rotation
 config_3d = GraphConfig(
-    equation=("sin(t)", "cos(t)", "t"),
+    equation=("sin(t)", "cos(t)", "tan(t)"),
     mode='3d',
-    x_range=(0, 4*np.pi),
+    x_range=(0, 12*np.pi),
     speed_zones=[(0, 2, 1), (2, 4, 5)],
     show_grid=False,
     camera_rotation=True,
