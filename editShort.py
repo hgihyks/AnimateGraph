@@ -6,6 +6,7 @@ import os
 import subprocess
 import math
 import json
+from ultralytics import YOLO
 
 def get_video_metadata(path):
     try:
@@ -248,6 +249,81 @@ def concatenate_segments(input_video, timestamps_file, output_video):
     out = ffmpeg.output(concatenated[0], output_video)
     out.run(overwrite_output=True)
 
+def smart_crop_box(frame, model, target_aspect_ratio=9/16):
+    h, w, _ = frame.shape
+    results = model(frame, verbose=False)[0]
+
+    # If detections exist, calculate bounding box center of all objects
+    if results.boxes:
+        boxes = results.boxes.xyxy.cpu().numpy()
+        x_centers = [(box[0] + box[2]) / 2 for box in boxes]
+        y_centers = [(box[1] + box[3]) / 2 for box in boxes]
+        center_x = int(sum(x_centers) / len(x_centers))
+        center_y = int(sum(y_centers) / len(y_centers))
+    else:
+        # No detections, fallback to center
+        center_x = w // 2
+        center_y = h // 2
+
+    # Compute target crop dimensions
+    if w / h > target_aspect_ratio:
+        # Wider than 9:16 → crop width
+        crop_h = h
+        crop_w = int(h * target_aspect_ratio)
+    else:
+        # Taller than 9:16 → crop height
+        crop_w = w
+        crop_h = int(w / target_aspect_ratio)
+
+    # Ensure crop box is within frame
+    x1 = max(0, min(w - crop_w, center_x - crop_w // 2))
+    y1 = max(0, min(h - crop_h, center_y - crop_h // 2))
+    
+    crop_w = crop_w - (crop_w % 2)
+    crop_h = crop_h - (crop_h % 2)
+    x1 = max(0, min(w - crop_w, center_x - crop_w // 2))
+    y1 = max(0, min(h - crop_h, center_y - crop_h // 2))
+    return int(x1), int(y1), int(crop_w), int(crop_h)
+
+
+def crop_video(input_path, output_path, model_path="yolov8n.pt"):
+    model = YOLO(model_path)
+    cap = cv2.VideoCapture(input_path)
+    fps = cap.get(cv2.CAP_PROP_FPS)
+    temp_frames_dir = "temp_frames"
+    os.makedirs(temp_frames_dir, exist_ok=True)
+
+    frame_paths = []
+    i = 0
+    while True:
+        ret, frame = cap.read()
+        if not ret:
+            break
+
+        if i == 0:
+            x, y, cw, ch = smart_crop_box(frame, model)
+
+        cropped = frame[y:y+ch, x:x+cw]
+        frame_path = os.path.join(temp_frames_dir, f"frame_{i:05d}.png")
+        cv2.imwrite(frame_path, cropped)
+        frame_paths.append(frame_path)
+        i += 1
+
+    cap.release()
+
+    # Use ffmpeg to combine images into video
+    (
+        ffmpeg
+        .input(os.path.join(temp_frames_dir, 'frame_%05d.png'), framerate=fps)
+        .output(output_path, vcodec='libx264', pix_fmt='yuv420p')
+        .run(overwrite_output=True)
+    )
+
+    # Cleanup
+    for f in frame_paths:
+        os.remove(f)
+    os.rmdir(temp_frames_dir)
+
 if __name__ == "__main__":
     with open('config.json', 'r') as cfg_file:
         config = json.load(cfg_file)
@@ -271,4 +347,9 @@ if __name__ == "__main__":
             output_segments_file)
     
     concatenate_segments(output_file, output_segments_file, segmented_video)
+    
+    # Crop segmented video to 9:16 aspect ratio and save as final output
+    # seg_duration, seg_width, seg_height = get_video_metadata(segmented_video)
+    # pad_to_9_16(segmented_video, output_video_9x16, seg_width, seg_height)
+    crop_video(segmented_video, output_video_9x16)
     
