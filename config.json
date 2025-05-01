@@ -1,0 +1,10 @@
+{
+  "input_folder": "input_media",
+  "output_file": "output_videos/combined_output.mp4",
+  "output_video_9x16": "output_videos/output_9x16_high_quality.mp4",
+  "output_segments_file": "output_videos/segments.txt",
+  "segmented_video_path": "output_videos/segmented_output.mp4",
+  "segment_min_duration": 1.0,
+  "segment_max_duration": 3.0,
+  "segment_total_length": 45.0
+} 
