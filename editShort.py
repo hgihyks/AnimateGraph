@@ -5,6 +5,7 @@ import random
 import os
 import json
 from ultralytics import YOLO
+import torchaudio
 
 def get_video_metadata(path):
     try:
@@ -23,20 +24,21 @@ def find_and_save_segments(video_duration, min_duration, max_duration, total_len
     segments = []
     current_total_duration = 0.0
     num_segments = video_duration / max_duration
+    print(f"num segments {num_segments}")
+    print(f"total length {total_length}")
     possible_durations = [d / 2.0 for d in range(int(min_duration * 2), int(max_duration * 2) + 1)]
     for i in range(int(num_segments)):
         start_segment = i * max_duration
         end_segment = start_segment + random.choice(possible_durations)
         segments.append((start_segment, end_segment))
         current_total_duration += (end_segment - start_segment)
+    
+    print(f"Current total duration: {current_total_duration}")
     while current_total_duration > total_length:
         start, end = random.choice(segments)
         current_total_duration -= (end - start)
         segments.remove((start, end))
-    if not segments:
-        pass
-    elif abs(current_total_duration - total_length) > 0.25 and current_total_duration < total_length:
-        pass
+    
     segments.sort(key=lambda x: x[0])
     try:
         output_dir = os.path.dirname(output_txt_file)
@@ -81,14 +83,59 @@ def concatenate_segments(input_video, timestamps_file, output_video):
     out.run(overwrite_output=True)
 
 def combine_videos(input_folder, output_file):
+    """
+    Concatenate all video files in the input folder into a single output file.
+    
+    Args:
+        input_folder (str): Path to the folder containing video files.
+        output_file (str): Path to the output video file.
+    
+    Returns:
+        str: Path to the output file.
+    
+    Raises:
+        ValueError: If no video files are found in the input folder.
+        ffmpeg.Error: If FFmpeg processing fails.
+    """
+    # Temporary file to list video inputs
     temp_list = 'inputs.txt'
+    
+    # Get sorted list of video files
     files = sorted(os.listdir(input_folder))
     video_files = [f for f in files if f.lower().endswith(('.mp4', '.mov', '.avi', '.mkv'))]
+    
+    # Check if there are any video files
+    if not video_files:
+        raise ValueError("No video files found in the input folder.")
+    
+    # Write video file paths to temporary list file
     with open(temp_list, 'w') as f:
         for vid in video_files:
-            f.write(f"file '{os.path.abspath(os.path.join(input_folder, vid))}'\n")
-    ffmpeg.input(temp_list, format='concat', safe=0).output(output_file, c='copy').run()
-    os.remove(temp_list)
+            full_path = os.path.abspath(os.path.join(input_folder, vid))
+            f.write(f"file '{full_path}'\n")
+    
+    try:
+        # Set up FFmpeg input using concat demuxer
+        stream = ffmpeg.input(temp_list, format='concat', safe=0)
+        
+        # Configure output with re-encoding
+        stream = stream.output(
+            output_file,
+            vcodec='libx264',    # Video codec: H.264
+            r=24,             # Frame rate: 30 fps
+            video_bitrate='5000k',      # Video bitrate: 5000k
+            preset='medium'   # Encoding preset: Balance speed and quality
+        )
+        print(stream.get_args())
+        
+        # Run FFmpeg command, overwriting output if it exists
+        stream.run(overwrite_output=True)
+    
+    finally:
+        # Clean up temporary file
+        if os.path.exists(temp_list):
+            os.remove(temp_list)
+    
     return output_file
 
 def smart_crop_box(frame, model, target_aspect_ratio=9/16):
@@ -157,6 +204,20 @@ def crop_video(input_path, output_path, model_path="yolov8n.pt"):
         os.remove(f)
     os.rmdir(temp_frames_dir)
 
+def get_audio_duration(file_path: str) -> float:
+    """
+    Returns the duration of an audio file in seconds.
+
+    Parameters:
+    - file_path (str): Path to the audio file.
+
+    Returns:
+    - float: Duration in seconds.
+    """
+    waveform, sample_rate = torchaudio.load(file_path)
+    duration = waveform.size(1) / sample_rate
+    return int(duration) + 2
+
 if __name__ == "__main__":
     with open('config.json', 'r') as cfg_file:
         config = json.load(cfg_file)
@@ -166,12 +227,12 @@ if __name__ == "__main__":
     output_segments_file = config['output_segments_file']
     segment_min_duration = config['segment_min_duration']
     segment_max_duration = config['segment_max_duration']
-    segment_total_length = config['segment_total_length']
+    segment_total_length = get_audio_duration(config["narration_file"]) + segment_max_duration
     segmented_video = config['segmented_video_path']
     output_dir = os.path.dirname(output_video_9x16)
-    combined_video_path = combine_videos(input_folder, output_file)
+    # combined_video_path = combine_videos(input_folder, output_file)
     
-    original_duration, _, _ = get_video_metadata(combined_video_path)
+    original_duration, _, _ = get_video_metadata(output_file)
     find_and_save_segments(
             original_duration,
             segment_min_duration,
@@ -179,6 +240,6 @@ if __name__ == "__main__":
             segment_total_length,
             output_segments_file)
     
-    concatenate_segments(output_file, output_segments_file, segmented_video)
-    crop_video(segmented_video, output_video_9x16)
+    # concatenate_segments(output_file, output_segments_file, segmented_video)
+    # crop_video(segmented_video, output_video_9x16)
     

@@ -1,5 +1,6 @@
 import ffmpeg
 import os
+import json
 
 def add_audio_to_video(video_path, audio_path, output_path):
     if not os.path.exists(video_path):
@@ -30,7 +31,9 @@ def add_audio_to_video(video_path, audio_path, output_path):
 
 # Example usage
 if __name__ == "__main__":
-    video_file = "output_videos/output_9x16_high_quality.mp4"
-    audio_file = "output/shirley.wav"
-    output_file = "output_video_with_audio.mp4"
+    with open("config.json", "r") as cfg_file:
+        config = json.load(cfg_file)
+    video_file = config["output_video_9x16"]
+    audio_file = config["narration_file"]
+    output_file = config["video_file_with_audio"]
     add_audio_to_video(video_file, audio_file, output_file)
