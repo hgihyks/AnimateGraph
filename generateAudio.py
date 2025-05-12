@@ -2,9 +2,15 @@ from bark import SAMPLE_RATE, generate_audio
 import scipy
 import numpy as np
 import re
+import json
+
+# Load config
+with open("config.json", "r") as cfg_file:
+    config = json.load(cfg_file)
 
 # Load text prompt from file
-with open("input/prompt.txt", "r", encoding="utf-8") as f:
+prompt_file = config.get("prompt_file")
+with open(prompt_file, "r", encoding="utf-8") as f:
     text_prompt = f.read().strip()
 
 # Split into sentences using regex, then group them into chunks of approximately 30 words
@@ -28,9 +34,10 @@ for sentence in sentences:
 if current_chunk:
     chunks.append(current_chunk.strip())
 
-print(chunks)
+# print(chunks)
+
 # Use custom community-trained voice
-speaker = "custom_voices/suzue.npz"
+speaker = config["speaker"]
 
 # Generate audio for each chunk and concatenate
 all_audio = []
@@ -42,7 +49,7 @@ for chunk in chunks:
 final_audio = np.concatenate(all_audio)
 
 # Save the generated audio to a WAV file
-output_path = "output/bark_output.wav"
+output_path = config["audio_output_path"]
 scipy.io.wavfile.write(output_path, SAMPLE_RATE, final_audio)
 
-print("Audio generated and saved as 'bark_output.wav'.")
+print(f"Audio generated and saved as '{output_path}'.")

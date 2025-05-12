@@ -42,8 +42,8 @@ def process_video(video_path, timestamps_path, output_path):
         
         # Validate timestamps
         m_adjusted = min(m, duration)
-        bottom_start = n + 0.5
-        bottom_end = min(m_adjusted + 0.5, duration)
+        bottom_start = n + 0.2
+        bottom_end = min(m_adjusted + 0.2, duration)
         
         if m_adjusted <= n or bottom_start >= duration or bottom_end <= bottom_start:
             print(f"Skipping segment {i+1}: invalid range {n}-{m} (adjusted: {n}-{m_adjusted}, bottom: {bottom_start}-{bottom_end})")

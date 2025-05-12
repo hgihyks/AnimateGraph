@@ -12,8 +12,11 @@ VIDEO_PATH = config["video_file_with_audio"]
 OUTPUT_PATH = config["output_path"]
 FONT_NAME = config["font_name"]
 FONT_SIZE = config["font_size"]
+MOVIE_FONT_SIZE = config["movie_font_size"]
 OUTLINE = config["outline"]
+SHADOW = config["shadow"]
 TEXT_COLOR = config["text_color"]
+MOVIE_TEXT_COLOR = config["movie_text_color"]
 OUTLINE_COLOR = config["outline_color"]
 ALIGNMENT = config["alignment"]  # 1=bottom-left, 2=bottom-center, 3=bottom-right
 LINE_DURATION = config["min_line_duration"]
@@ -43,7 +46,8 @@ if not os.path.exists(ass_path):
 
     [V4+ Styles]
     Format: Name, Fontname, Fontsize, PrimaryColour, OutlineColour, Bold, Italic, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
-    Style: Default,{FONT_NAME},{FONT_SIZE},{TEXT_COLOR},{OUTLINE_COLOR},0,0,1,{OUTLINE},0,{ALIGNMENT},0,0,0,1
+    Style: Default,{FONT_NAME},{FONT_SIZE},{TEXT_COLOR},{OUTLINE_COLOR},0,0,1,{OUTLINE},{SHADOW},{ALIGNMENT},0,0,0,1
+    Style: Movie,{FONT_NAME},{MOVIE_FONT_SIZE},{MOVIE_TEXT_COLOR},{OUTLINE_COLOR},0,0,1,{OUTLINE},{SHADOW},{ALIGNMENT},0,0,0,1
 
     [Events]
     Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
@@ -70,6 +74,7 @@ if not os.path.exists(ass_path):
                         text = " ".join(w["text"].strip().replace("{", "").replace("}", "") for w in group)
 
                         pos = fr"{{\pos({POS_X},{POS_Y})}}"
+                        f.write("\n")
                         f.write(f"Dialogue: 0,{start},{end},Default,,0,0,0,,{pos}{text}\n")
 
                         group = []  # reset group
